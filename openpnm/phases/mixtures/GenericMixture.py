@@ -89,14 +89,11 @@ class GenericMixture(GenericPhase):
 
     def _update_total_molfrac(self):
         # Update mole_fraction.all
-        self['pore.mole_fraction.all'] = 0.0
-        dict_ = list(self['pore.mole_fraction'].values())
-        if len(dict_) > 1:
-            self['pore.mole_fraction.all'] = np.sum(dict_, axis=0)
-        self['throat.mole_fraction.all'] = 0.0
-        dict_ = list(self['throat.mole_fraction'].values())
-        if len(dict_) > 1:
-            self['throat.mole_fraction.all'] = np.sum(dict_, axis=0)
+        mf = 0.0
+        comps = list(self.components.values())
+        for item in comps:
+            mf += self['pore.mole_fraction.' + item.name]
+        self['pore.mole_fraction.all'] = mf
 
     def _reset_molefracs(self):
         for item in self.settings['components']:
@@ -104,37 +101,44 @@ class GenericMixture(GenericPhase):
 
     def update_mole_fractions(self, free_comp=None):
         r"""
-        Re-calculates mole fraction of each species in mixture based on the
-        current concentrations.
+        Adjusts the mole fraction of the specified species so total sums to 1.0
 
         Parameters
         ----------
-        concentration : string, optional
-            The dictionary key pointing to the desired concentration values.
-            The default is 'pore.concentration'.  Given this value, lookups
-            are performed for each species in the mixture.
+        free_comp : OpenPNM Phase object
+            The object (or name) of the component whose mole fraction should
+            be adjusted.
 
         Notes
         -----
         The method does not return any values.  Instead it updates the mole
         fraction arrays of each species directly.
         """
-        concentrations = ['pore.concentration.' + comp for comp
-                          in self.settings['components']
-                          if 'pore.concentration.' + comp in self.keys()]
-        if len(concentrations) == len(self.components):
-            # Find total number of moles per unit volume
-            density = 0.0
-            for conc in concentrations:
-                density += self[conc]
-            # Normalize moles per unit volume for each species by the total
-            for conc in concentrations:
-                element, quantity, component = conc.split('.')
-                self[element+'.mole_fraction.'+component] = self[conc]/density
+        if hasattr(free_comp, 'name'):  # Get name if give openpnm object
+            free_comp = free_comp.name
+        if free_comp is not None:  # Set the component's mole fraction to nan
+            self['pore.mole_fraction.' + free_comp] = np.nan
+        # Now search for component with nan in the mole fraction array
+        hasnans = []
+        comps = list(self.components.values())
+        for item in comps:
+            hasnans.append(np.any(np.isnan(self['pore.mole_fraction.' + item.name])))
+        # If one of the components has nans, then adjust it to make sum = 1.0
+        if hasnans.count(True) == 1:
+            comp = comps.pop(hasnans.index(True))
+            self['pore.mole_fraction.' + comp.name] = 1.0
+            for item in comps:
+                self['pore.mole_fraction.' + comp.name] -= \
+                    self['pore.mole_fraction.' + item.name]
+        # If all or none components have values, then use concentrations
         else:
-            raise Exception('Insufficient concentration values found for ' +
-                            'component species, cannot calculate mole ' +
-                            'fractions')
+            total_conc = 0.0
+            for item in comps:
+                total_conc += self['pore.concentration.' + item.name]
+            for item in comps:
+                mf = self['pore.concentration.' + item.name] / total_conc
+                self['pore.mole_fraction.' + item.name] = mf
+        self._update_total_molfrac()
 
     def set_concentration(self, component, values=[]):
         r"""
@@ -167,22 +171,23 @@ class GenericMixture(GenericPhase):
 
     def set_mole_fraction(self, component, values=[]):
         r"""
-        Specify mole fraction of each component in each pore
+        Specify mole fraction of a component in each pore
 
         Parameters
         ----------
-        components : OpenPNM Phase object or name string
+        component : OpenPNM Phase object or name string
             The phase whose mole fraction is being specified
-
         values : array_like
             The mole fraction of the given ``component `` in each pore.  This
             array must be *Np*-long, with one value between 0 and 1 for each
             pore in the network.  If a scalar is received it is applied to
             all pores.
 
-        See Also
-        --------
-        set_concentration
+        Notes
+        -----
+        This method does *not* adjust the other mole fractions or
+        concentrations.  By contrast, the ``set_concentrations`` method
+        sets all the mole fractions to 0.
 
         """
         if type(component) == str:
