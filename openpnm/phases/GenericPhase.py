@@ -1,9 +1,9 @@
 from openpnm.core import Base, ModelsMixin
-from openpnm.utils import PrintableDict, Workspace, logging
+from openpnm.utils import Workspace, logging
+from numpy import ones
 import openpnm.models as mods
 logger = logging.getLogger(__name__)
 ws = Workspace()
-from numpy import ones
 
 
 class GenericPhase(Base, ModelsMixin):

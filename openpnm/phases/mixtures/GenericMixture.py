@@ -59,8 +59,8 @@ class GenericMixture(GenericPhase):
             self.set_mole_fraction(component=comp, values=np.nan)
 
         self['pore.mole_fraction.all'] = np.nan
-        logger.warning('Mixtures are a beta feature and functionality may ' +
-                       'change in future versions')
+        logger.warning('Mixtures are a beta feature and functionality may '
+                       + 'change in future versions')
 
     def __getitem__(self, key):
         try:
@@ -99,8 +99,8 @@ class GenericMixture(GenericPhase):
         lines = super().__str__()
         lines = '\n'.join((lines, 'Component Phases', horizontal_rule))
         for item in self.components.values():
-            lines = '\n'.join((lines, item.__module__.replace('__', '') +
-                               ' : ' + item.name))
+            lines = '\n'.join((lines, item.__module__.replace('__', '')
+                               + ' : ' + item.name))
         lines = '\n'.join((lines, horizontal_rule))
         return lines
 
@@ -215,8 +215,8 @@ class GenericMixture(GenericPhase):
         if component not in self.components.values():
             raise Exception(f"{component.name} doesn't belong to this mixture")
         if np.any(Pvals > 1.0) or np.any(Pvals < 0.0):
-            logger.warning('Received values contain mole fractions outside ' +
-                           'the range of 0 -> 1')
+            logger.warning('Received values contain mole fractions outside '
+                           + 'the range of 0 -> 1')
         if Pvals.size:
             self['pore.mole_fraction.' + component.name] = Pvals
         self._update_total_molfrac()
@@ -292,8 +292,8 @@ class GenericMixture(GenericPhase):
             if np.any(self[element + '.mole_fraction.all'] != 1.0):
                 self._update_total_molfrac()
                 if np.any(self[element + '.mole_fraction.all'] != 1.0):
-                    raise Exception('Mole fraction does not add to unity in all ' +
-                                    element + 's')
+                    raise Exception('Mole fraction does not add to unity in all '
+                                    + element + 's')
         vals = np.zeros([self._count(element=element)], dtype=float)
         try:
             for comp in self.components.values():

@@ -6,7 +6,10 @@ logger = logging.getLogger(__name__)
 
 class SalineWater(GenericMixture):
     r"""
+    The subclass creates a mixture with water, Na, and Cl.  The composition of
+    Na and Cl are set to zero initially.
     """
+
     def __init__(self, network, components=None, **kwargs):
         if components is not None:
             logger.warn('Ignoring received components')
