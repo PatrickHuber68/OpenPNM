@@ -2,9 +2,25 @@
 import numpy as np
 from openpnm.phases import GenericPhase as GenericPhase
 from openpnm.utils import logging, HealthDict, PrintableList
+from openpnm.utils import Docorator, GenericSettings
 logger = logging.getLogger(__name__)
+docstr = Docorator()
 
 
+class GenericMixtureSettings(GenericSettings):
+    r"""
+    The following settings are specific to Mixture objects
+
+    Parameters
+    ----------
+    components : list of strings
+        The names of each pure component object that constitute the mixture
+    """
+    components = []
+
+
+@docstr.get_sectionsf('GenericMixture', sections=['Parameters'])
+@docstr.dedent
 class GenericMixture(GenericPhase):
     r"""
     Creates Phase object that represents a multicomponent mixture system
@@ -12,17 +28,14 @@ class GenericMixture(GenericPhase):
 
     Parameters
     ----------
-    network : OpenPNM Network object
-        The network to which this phase object will be attached.
-
     components : list of OpenPNM Phase objects
         A list of all components that constitute this mixture
-
+    network : OpenPNM Network object
+        The network to which this phase object will be attached.
     project : OpenPNM Project object, optional
         The Project with which this phase should be associted.  If a
         ``network`` is given then this is ignored and the Network's project
         is used.  If a ``network`` is not given then this is mandatory.
-
     name : string, optional
         The name of the phase.  This is useful to keep track of the objects
         throughout the simulation.  The name must be unique to the project.
@@ -31,15 +44,19 @@ class GenericMixture(GenericPhase):
     """
 
     def __init__(self, components=[], settings={}, **kwargs):
-        self.settings.update({'components': [],
-                              })
+        self.settings._update_settings_and_docs(GenericMixtureSettings)
+        # Note: for some reason that eludes me right now, the 'mix' prefix
+        # MUST be sent to the super class or the whole thing fails. I do not
+        # know what bit of code is looking at this prefix, but it is only
+        # supposed to control the arbitrary name, not be used to control
+        # some logic in the code.
         super().__init__(settings={'prefix': 'mix'}, **kwargs)
         self.settings.update(settings)
 
         # Add any supplied phases to the phases list
         for comp in components:
-            self.settings['components'].append(comp.name)
-            self['pore.mole_fraction.'+comp.name] = np.nan
+            self.set_component(comp, mode='add')
+            self.set_mole_fraction(component=comp, values=np.nan)
 
         self['pore.mole_fraction.all'] = np.nan
         logger.warning('Mixtures are a beta feature and functionality may ' +
@@ -142,7 +159,7 @@ class GenericMixture(GenericPhase):
 
     def set_concentration(self, component, values=[]):
         r"""
-        Specify mole fraction of each component in each pore
+        Specify the concentration of a component in each pore
 
         Parameters
         ----------
@@ -223,9 +240,11 @@ class GenericMixture(GenericPhase):
     def _set_comps(self, components):
         if not isinstance(components, list):
             components = [components]
-        self.settings['components'] = [val.name for val in components]
+        # Get temporary list of current components
         temp = self.settings['components'].copy()
+        # Add each given component
         temp.extend([val.name for val in components])
+        # Remove dupes by converting to set and back
         self.settings['components'] = list(set(temp))
 
     components = property(fget=_get_comps, fset=_set_comps)
